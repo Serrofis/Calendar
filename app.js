@@ -34,7 +34,6 @@
   const firstOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
   // Weeks start on Monday.
   const gridStart = (month) => addDays(month, -((month.getDay() + 6) % 7));
-  const timeLabel = (d) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   // ---- Google sign-in (OAuth implicit flow by redirect; works in iOS home-screen apps) ----
   function readRedirect() {
@@ -263,6 +262,7 @@
       cell.setAttribute('aria-label', date.toLocaleDateString(undefined, { dateStyle: 'full' }));
       cell.addEventListener('click', () => {
         state.selected = date;
+        toggleMonth(false);
         if (date.getMonth() !== state.month.getMonth()) {
           state.month = firstOfMonth(date);
           loadMonth();
@@ -274,21 +274,74 @@
     }
     $('grid').replaceChildren(...cells);
 
-    $('dayTitle').textContent = state.selected.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    // The departure board for the selected day.
+    $('dayTitle').textContent = state.selected.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    const now = new Date();
     const events = (byDay.get(selectedKey) || []).slice().sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
     const rows = events.map((ev) => {
-      const bar = el('span', { className: 'bar' });
-      bar.style.background = ev.color;
-      const when = ev.allDay ? 'All day' : `${timeLabel(ev.start)} – ${timeLabel(ev.end)}`;
-      const meta = ev.location ? `${when} · ${ev.location}` : when;
-      const button = el('button', { className: 'event', type: 'button' }, bar,
-        el('span', { className: 'body' },
-          el('div', { className: 'name', textContent: ev.title }),
-          el('div', { className: 'meta', textContent: meta })));
+      const cal = state.calendars.find((c) => c.id === ev.calId);
+      const line = el('span', { className: 'line', textContent: cal ? cal.name.trim().charAt(0) : '' });
+      line.style.background = ev.color;
+      line.style.color = textOn(ev.color);
+      const st = boardStatus(ev, selectedKey === todayKey, now);
+      const meta = [cal && cal.name, ev.location].filter(Boolean).join(' · ');
+      const button = el('button', { className: 'row', type: 'button' }, line,
+        el('span', { className: 'time' }, ...dotText(ev.allDay ? '--:--' : hm(ev.start))),
+        el('span', { className: 'what' },
+          el('span', { className: 'name', textContent: ev.title }),
+          el('span', { className: 'meta', textContent: meta })),
+        el('span', { className: 'status' }, ...(st.value ? [el('b', {}, ...dotText(st.value))] : []), el('small', { textContent: st.label })));
+      button.classList.toggle('live', !!st.live);
+      button.classList.toggle('past', !!st.past);
       button.addEventListener('click', () => openEditor(ev));
       return el('li', {}, button);
     });
-    $('dayList').replaceChildren(...(rows.length ? rows : [el('li', { className: 'empty', textContent: 'Nothing planned' })]));
+    $('dayList').replaceChildren(...(rows.length ? rows : [el('li', { className: 'empty', textContent: 'No departures' })]));
+  }
+
+  // Right-hand column of a board row: a big value over a small label.
+  // Today counts down to each event; other days show when it ends.
+  function boardStatus(ev, isToday, now) {
+    if (ev.allDay) return { value: 'All', label: 'day' };
+    if (!isToday) return { value: hm(ev.end), label: 'ends' };
+    if (ev.end <= now) return { value: '', label: 'ended', past: true };
+    const live = ev.start <= now;
+    const mins = Math.max(1, Math.round(((live ? ev.end : ev.start) - now) / 60000));
+    const value = mins < 60 ? String(mins) : `${Math.floor(mins / 60)}:${pad(mins % 60)}`;
+    return { value, label: (mins < 60 ? 'min' : 'hr') + (live ? ' left' : ''), live };
+  }
+
+  // Text for the dot-matrix font, with each colon wrapped so CSS can set it in the plain font.
+  function dotText(text) {
+    return text.split(':').flatMap((part, i) => (i ? [el('i', { className: 'sep', textContent: ':' }), part] : [part]));
+  }
+
+  // Black or white, whichever reads better on a calendar's colour.
+  function textOn(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex || '')) return '#000';
+    const n = parseInt(hex.slice(1), 16);
+    return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 150 ? '#000' : '#fff';
+  }
+
+  function toggleMonth(open) {
+    $('monthPanel').hidden = !open;
+    $('dayBtn').setAttribute('aria-expanded', open);
+  }
+
+  function shiftDay(delta) {
+    state.selected = addDays(state.selected, delta);
+    if (state.selected.getMonth() === state.month.getMonth() && state.selected.getFullYear() === state.month.getFullYear()) {
+      render();
+    } else {
+      state.month = firstOfMonth(state.selected);
+      loadMonth();
+    }
+  }
+
+  function tick() {
+    const now = new Date();
+    $('clock').replaceChildren(...dotText(`${hm(now)}:${pad(now.getSeconds())}`));
+    if (now.getSeconds() === 0 && !$('app').hidden) render();   // keeps the countdowns current
   }
 
   function renderWeekdays() {
@@ -443,6 +496,7 @@
     $('app').hidden = false;
     renderWeekdays();
     render();
+    tick();
     try {
       state.calendars = await backend.calendars();
       await loadMonth();
@@ -454,7 +508,11 @@
   $('signinBtn').addEventListener('click', signIn);
   $('prev').addEventListener('click', () => shiftMonth(-1));
   $('next').addEventListener('click', () => shiftMonth(1));
+  $('prevDay').addEventListener('click', () => shiftDay(-1));
+  $('nextDay').addEventListener('click', () => shiftDay(1));
+  $('dayBtn').addEventListener('click', () => toggleMonth($('monthPanel').hidden));
   $('today').addEventListener('click', () => {
+    toggleMonth(false);
     state.selected = startOfDay(new Date());
     state.month = firstOfMonth(state.selected);
     loadMonth();
@@ -468,18 +526,23 @@
   $('f-delete').addEventListener('click', deleteEvent);
   $('editorForm').addEventListener('submit', saveEvent);
 
-  // Swipe the month grid sideways to change month.
-  let touchX = 0;
-  let touchY = 0;
-  $('grid').addEventListener('touchstart', (e) => {
-    touchX = e.touches[0].clientX;
-    touchY = e.touches[0].clientY;
-  }, { passive: true });
-  $('grid').addEventListener('touchend', (e) => {
-    const dx = e.changedTouches[0].clientX - touchX;
-    const dy = e.changedTouches[0].clientY - touchY;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) shiftMonth(dx < 0 ? 1 : -1);
-  }, { passive: true });
+  // Swipe sideways: the board changes day, the month picker changes month.
+  function onSwipe(node, handler) {
+    let touchX = 0;
+    let touchY = 0;
+    node.addEventListener('touchstart', (e) => {
+      touchX = e.touches[0].clientX;
+      touchY = e.touches[0].clientY;
+    }, { passive: true });
+    node.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchX;
+      const dy = e.changedTouches[0].clientY - touchY;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) handler(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+  onSwipe($('grid'), shiftMonth);
+  onSwipe($('agenda'), shiftDay);
+  setInterval(tick, 1000);
 
   // Pick up changes made elsewhere when the app comes back to the foreground.
   document.addEventListener('visibilitychange', () => {

@@ -6,11 +6,13 @@
   <title>My Calendar</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Calendar">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#111418" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#0a0a0a">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -24,16 +26,29 @@
 
   <div id="app" hidden>
     <header>
-      <button id="prev" class="icon" aria-label="Previous month">&#8249;</button>
-      <h1 id="title"></h1>
-      <button id="next" class="icon" aria-label="Next month">&#8250;</button>
-      <button id="today">Today</button>
-      <button id="menuBtn" class="icon" aria-label="Calendars and account">&#9776;</button>
+      <div class="board-top">
+        <h1>Departures</h1>
+        <time id="clock"></time>
+      </div>
+      <div class="board-nav">
+        <button id="prevDay" class="icon" aria-label="Previous day">&#8249;</button>
+        <button id="dayBtn" aria-expanded="false" aria-controls="monthPanel"><span id="dayTitle"></span><span class="chevron" aria-hidden="true">&#9662;</span></button>
+        <button id="nextDay" class="icon" aria-label="Next day">&#8250;</button>
+        <button id="today">Today</button>
+        <button id="menuBtn" class="icon" aria-label="Calendars and account">&#9776;</button>
+      </div>
     </header>
-    <div id="weekdays"></div>
-    <div id="grid"></div>
+    <div id="monthPanel" hidden>
+      <div class="month-nav">
+        <button id="prev" class="icon" aria-label="Previous month">&#8249;</button>
+        <h2 id="title"></h2>
+        <button id="next" class="icon" aria-label="Next month">&#8250;</button>
+      </div>
+      <div id="weekdays"></div>
+      <div id="grid"></div>
+    </div>
     <section id="agenda">
-      <h2 id="dayTitle"></h2>
+      <div class="columns" aria-hidden="true"><span>Time</span><span>Event</span><span>Status</span></div>
       <ul id="dayList"></ul>
     </section>
     <button id="add" aria-label="New event">+</button>
@@ -44,10 +59,10 @@
       <h2 id="editorTitle">New event</h2>
       <fieldset id="editorFields">
         <input id="f-title" type="text" placeholder="Title" autocomplete="off">
-        <label class="row"><span>All day</span><input id="f-allday" type="checkbox"></label>
-        <label class="row"><span>Starts</span><span class="when"><input id="f-sdate" type="date" required><input id="f-stime" type="time"></span></label>
-        <label class="row"><span>Ends</span><span class="when"><input id="f-edate" type="date" required><input id="f-etime" type="time"></span></label>
-        <label class="row"><span>Calendar</span><select id="f-cal"></select></label>
+        <label class="row-field"><span>All day</span><input id="f-allday" type="checkbox"></label>
+        <label class="row-field"><span>Starts</span><span class="when"><input id="f-sdate" type="date" required><input id="f-stime" type="time"></span></label>
+        <label class="row-field"><span>Ends</span><span class="when"><input id="f-edate" type="date" required><input id="f-etime" type="time"></span></label>
+        <label class="row-field"><span>Calendar</span><select id="f-cal"></select></label>
         <input id="f-loc" type="text" placeholder="Location" autocomplete="off">
         <textarea id="f-desc" rows="3" placeholder="Notes"></textarea>
       </fieldset>
