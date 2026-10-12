@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>My Calendar</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Calendar">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111418" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="signin" hidden>
+    <img src="icon-180.png" alt="" width="84" height="84">
+    <h1>My Calendar</h1>
+    <p id="signinMsg">Sign in to see and edit your Google Calendar.</p>
+    <button id="signinBtn" class="primary">Sign in with Google</button>
+    <a id="demoLink" href="?demo">Try it with sample data</a>
+  </main>
+
+  <div id="app" hidden>
+    <header>
+      <button id="prev" class="icon" aria-label="Previous month">&#8249;</button>
+      <h1 id="title"></h1>
+      <button id="next" class="icon" aria-label="Next month">&#8250;</button>
+      <button id="today">Today</button>
+      <button id="menuBtn" class="icon" aria-label="Calendars and account">&#9776;</button>
+    </header>
+    <div id="weekdays"></div>
+    <div id="grid"></div>
+    <section id="agenda">
+      <h2 id="dayTitle"></h2>
+      <ul id="dayList"></ul>
+    </section>
+    <button id="add" aria-label="New event">+</button>
+  </div>
+
+  <dialog id="editor">
+    <form id="editorForm">
+      <h2 id="editorTitle">New event</h2>
+      <fieldset id="editorFields">
+        <input id="f-title" type="text" placeholder="Title" autocomplete="off">
+        <label class="row"><span>All day</span><input id="f-allday" type="checkbox"></label>
+        <label class="row"><span>Starts</span><span class="when"><input id="f-sdate" type="date" required><input id="f-stime" type="time"></span></label>
+        <label class="row"><span>Ends</span><span class="when"><input id="f-edate" type="date" required><input id="f-etime" type="time"></span></label>
+        <label class="row"><span>Calendar</span><select id="f-cal"></select></label>
+        <input id="f-loc" type="text" placeholder="Location" autocomplete="off">
+        <textarea id="f-desc" rows="3" placeholder="Notes"></textarea>
+      </fieldset>
+      <div class="actions">
+        <button id="f-delete" type="button" class="danger">Delete</button>
+        <span class="spacer"></span>
+        <button id="f-cancel" type="button">Cancel</button>
+        <button id="f-save" type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="menu">
+    <h2>Calendars</h2>
+    <ul id="calList"></ul>
+    <div class="actions">
+      <button id="signout" type="button">Sign out</button>
+      <span class="spacer"></span>
+      <button id="menuClose" type="button" class="primary">Done</button>
+    </div>
+  </dialog>
+
+  <div id="toast" role="status" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
