@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>My Calendar</title>
+  <title>Schedule</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Calendar">
+  <meta name="apple-mobile-web-app-title" content="Schedule">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="theme-color" content="#0a0a0a">
   <link rel="manifest" href="manifest.webmanifest">
@@ -18,7 +18,7 @@
 <body>
   <main id="signin" hidden>
     <img src="icon-180.png" alt="" width="84" height="84">
-    <h1>My Calendar</h1>
+    <h1>Schedule</h1>
     <p id="signinMsg">Sign in to see and edit your Google Calendar.</p>
     <button id="signinBtn" class="primary">Sign in with Google</button>
     <a id="demoLink" href="?demo">Try it with sample data</a>
@@ -27,15 +27,20 @@
   <div id="app" hidden>
     <header>
       <div class="board-top">
-        <h1>Departures</h1>
+        <h1>Schedule</h1>
         <time id="clock"></time>
       </div>
       <div class="board-nav">
-        <button id="prevDay" class="icon" aria-label="Previous day">&#8249;</button>
+        <button id="prevDay" class="icon" aria-label="Back">&#8249;</button>
         <button id="dayBtn" aria-expanded="false" aria-controls="monthPanel"><span id="dayTitle"></span><span class="chevron" aria-hidden="true">&#9662;</span></button>
-        <button id="nextDay" class="icon" aria-label="Next day">&#8250;</button>
-        <button id="today">Today</button>
+        <button id="nextDay" class="icon" aria-label="Forward">&#8250;</button>
         <button id="menuBtn" class="icon" aria-label="Calendars and account">&#9776;</button>
+      </div>
+      <div class="board-views">
+        <div class="views" role="group" aria-label="View">
+          <button id="viewDay" aria-pressed="true">Day</button><button id="viewWeek" aria-pressed="false">Week</button>
+        </div>
+        <button id="today">Today</button>
       </div>
     </header>
     <div id="monthPanel" hidden>
@@ -51,6 +56,7 @@
       <div class="columns" aria-hidden="true"><span>Time</span><span>Event</span><span>Status</span></div>
       <ul id="dayList"></ul>
     </section>
+    <section id="week" hidden></section>
     <button id="add" aria-label="New event">+</button>
   </div>
 

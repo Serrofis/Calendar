@@ -8,6 +8,7 @@
   --accent: #ffb400;
   --on-accent: #0a0a0a;
   --danger: #ff7a66;
+  --soon: #ff4d3d;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --dots: "Doto", var(--mono);
   color-scheme: dark;
@@ -86,7 +87,11 @@ header { padding: 12px 12px 8px; border-bottom: 2px solid var(--accent); }
 }
 #dayBtn .chevron { font-size: 12px; transition: transform .15s; }
 #dayBtn[aria-expanded="true"] .chevron { transform: rotate(180deg); }
-#today { font-size: 13px; margin-left: 2px; }
+#today { font-size: 13px; padding: 6px 12px; }
+.board-views { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.views { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.views button { border: 0; border-radius: 0; padding: 6px 14px; font-size: 13px; background: transparent; color: var(--muted); }
+.views button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 
 /* Month picker, shown from the date button */
 #monthPanel { padding: 6px 6px 8px; border-bottom: 1px solid var(--line); background: var(--surface); }
@@ -146,15 +151,70 @@ header { padding: 12px 12px 8px; border-bottom: 2px solid var(--accent); }
   letter-spacing: 0;
 }
 .row .time { font: 900 21px/1 var(--dots); font-variant-numeric: tabular-nums; }
-.row .name { display: block; font-weight: 700; overflow-wrap: anywhere; }
-.row .meta { display: block; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.row .name { font-weight: 700; overflow-wrap: anywhere; }
 .row .status { text-align: right; white-space: nowrap; }
 .row .status b { display: block; font: 900 26px/1 var(--dots); font-variant-numeric: tabular-nums; }
 .row .status small { font-size: 10px; color: var(--muted); }
 /* happening now: the lit row */
 .row.live { background: var(--accent); color: var(--on-accent); }
-.row.live .meta, .row.live .status small { color: inherit; opacity: .75; }
+.row.live .status small { color: inherit; opacity: .75; }
+/* starting within two hours */
+.row.soon .time, .row.soon .status b, .row.soon .status small { color: var(--soon); }
 .row.past { opacity: .45; }
+
+/* Week: seven day columns, scrolled sideways */
+#week {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 8px;
+  padding: 10px 8px calc(96px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+#week::-webkit-scrollbar { display: none; }
+.week-day {
+  flex: 0 0 calc((100% - 16px) / 2.6);
+  min-width: 118px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 2px solid var(--line);
+  padding-top: 6px;
+}
+.week-day.today { border-top-color: var(--accent); }
+.week-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 2px 2px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.week-head b { font: 900 22px/1 var(--dots); color: var(--text); }
+.week-day.today .week-head, .week-day.today .week-head b { color: var(--accent); }
+.week-day.selected .week-head b { text-decoration: underline; text-underline-offset: 4px; }
+.chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 7px 8px;
+  border: 0;
+  border-left: 4px solid var(--c);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.chip-time { font: 900 15px/1 var(--dots); color: var(--c); }
+.chip-name { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.chip.past { opacity: .45; }
+.week-empty { color: var(--muted); padding: 4px 2px; }
 
 #add {
   position: fixed;

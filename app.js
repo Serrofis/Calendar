@@ -9,6 +9,8 @@
   ].join(' ');
   const DEMO = new URLSearchParams(location.search).has('demo');
   const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Each entry on a day gets its own colour, in this order.
+  const PALETTE = ['#3d8bff', '#ff8a1f', '#ff4fa3', '#2fd16b', '#b57bff', '#00c8c8', '#ffd23f', '#ff5c5c'];
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, props, ...children) => {
@@ -153,6 +155,9 @@
     const items = [
       timed('work', 'Morning shift', 0, 7, 15),
       timed('me', 'Dinner with friends', 0, 20, 22),
+      timed('me', 'Call with Mara', 0, now.getHours() + 1, now.getHours() + 2),
+      timed('work', 'Team meeting', 2, 10, 11),
+      timed('me', 'Haircut', 4, 17, 18),
       timed('work', 'Morning shift', 1, 7, 15),
       timed('me', 'Gym', 3, 18, 19),
       { id: `demo${seq++}`, cal: 'me', summary: 'Weekend trip', start: { date: ymd(addDays(now, 5)) }, end: { date: ymd(addDays(now, 7)) } },
@@ -183,6 +188,7 @@
     hidden: new Set(store.get('hidden_calendars') || []),
     cache: new Map(), // month key -> events
     editing: null,
+    view: store.get('view') === 'week' ? 'week' : 'day',
   };
 
   function normalize(e, cal) {
@@ -274,29 +280,80 @@
     }
     $('grid').replaceChildren(...cells);
 
-    // The departure board for the selected day.
-    $('dayTitle').textContent = state.selected.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     const now = new Date();
-    const events = (byDay.get(selectedKey) || []).slice().sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
-    const rows = events.map((ev) => {
-      const cal = state.calendars.find((c) => c.id === ev.calId);
-      const line = el('span', { className: 'line', textContent: cal ? cal.name.trim().charAt(0) : '' });
-      line.style.background = ev.color;
-      line.style.color = textOn(ev.color);
+    const weekView = state.view === 'week';
+    $('viewDay').setAttribute('aria-pressed', !weekView);
+    $('viewWeek').setAttribute('aria-pressed', weekView);
+    $('agenda').hidden = weekView;
+    $('week').hidden = !weekView;
+    if (weekView) {
+      const monday = addDays(state.selected, -((state.selected.getDay() + 6) % 7));
+      const sunday = addDays(monday, 6);
+      const short = (d) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+      $('dayTitle').textContent = `${short(monday)} – ${short(sunday)}`;
+      renderWeek(monday, byDay, todayKey, now);
+      return;
+    }
+
+    // The board for the selected day.
+    $('dayTitle').textContent = state.selected.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    const rows = sortedEvents(byDay, selectedKey).map((ev, i) => {
+      const color = PALETTE[i % PALETTE.length];
+      const line = el('span', { className: 'line', textContent: ev.title.trim().charAt(0) });
+      line.style.background = color;
+      line.style.color = textOn(color);
       const st = boardStatus(ev, selectedKey === todayKey, now);
-      const meta = [cal && cal.name, ev.location].filter(Boolean).join(' · ');
       const button = el('button', { className: 'row', type: 'button' }, line,
         el('span', { className: 'time' }, ...dotText(ev.allDay ? '--:--' : hm(ev.start))),
-        el('span', { className: 'what' },
-          el('span', { className: 'name', textContent: ev.title }),
-          el('span', { className: 'meta', textContent: meta })),
+        el('span', { className: 'name', textContent: ev.title }),
         el('span', { className: 'status' }, ...(st.value ? [el('b', {}, ...dotText(st.value))] : []), el('small', { textContent: st.label })));
       button.classList.toggle('live', !!st.live);
       button.classList.toggle('past', !!st.past);
+      button.classList.toggle('soon', !!st.soon);
       button.addEventListener('click', () => openEditor(ev));
       return el('li', {}, button);
     });
-    $('dayList').replaceChildren(...(rows.length ? rows : [el('li', { className: 'empty', textContent: 'No departures' })]));
+    $('dayList').replaceChildren(...(rows.length ? rows : [el('li', { className: 'empty', textContent: 'Nothing scheduled' })]));
+  }
+
+  // Seven day columns side by side, scrolled sideways.
+  function renderWeek(monday, byDay, todayKey, now) {
+    const columns = Array.from({ length: 7 }, (_, d) => {
+      const date = addDays(monday, d);
+      const key = ymd(date);
+      const head = el('button', { className: 'week-head', type: 'button' },
+        el('span', { textContent: date.toLocaleDateString(undefined, { weekday: 'short' }) }),
+        el('b', { textContent: date.getDate() }));
+      head.addEventListener('click', () => { state.selected = date; setView('day'); });
+      const chips = sortedEvents(byDay, key).map((ev, i) => {
+        const chip = el('button', { className: 'chip', type: 'button' },
+          el('span', { className: 'chip-time' }, ...dotText(ev.allDay ? 'All day' : hm(ev.start))),
+          el('span', { className: 'chip-name', textContent: ev.title }));
+        chip.style.setProperty('--c', PALETTE[i % PALETTE.length]);
+        chip.classList.toggle('past', key === todayKey && !ev.allDay && ev.end <= now);
+        chip.addEventListener('click', () => openEditor(ev));
+        return chip;
+      });
+      const column = el('div', { className: 'week-day' }, head, ...(chips.length ? chips : [el('span', { className: 'week-empty', textContent: '—' })]));
+      column.classList.toggle('today', key === todayKey);
+      column.classList.toggle('selected', key === ymd(state.selected));
+      return column;
+    });
+    $('week').replaceChildren(...columns);
+    const current = $('week').querySelector('.selected');
+    if (current) $('week').scrollLeft += current.getBoundingClientRect().left - $('week').getBoundingClientRect().left - 8;
+  }
+
+  function sortedEvents(byDay, key) {
+    return (byDay.get(key) || []).slice().sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
+  }
+
+  function setView(view) {
+    state.view = view;
+    store.set('view', view);
+    toggleMonth(false);
+    if (state.selected.getMonth() === state.month.getMonth() && state.selected.getFullYear() === state.month.getFullYear()) render();
+    else { state.month = firstOfMonth(state.selected); loadMonth(); }
   }
 
   // Right-hand column of a board row: a big value over a small label.
@@ -308,7 +365,7 @@
     const live = ev.start <= now;
     const mins = Math.max(1, Math.round(((live ? ev.end : ev.start) - now) / 60000));
     const value = mins < 60 ? String(mins) : `${Math.floor(mins / 60)}:${pad(mins % 60)}`;
-    return { value, label: (mins < 60 ? 'min' : 'hr') + (live ? ' left' : ''), live };
+    return { value, label: (mins < 60 ? 'min' : 'hr') + (live ? ' left' : ''), live, soon: !live && mins < 120 };
   }
 
   // Text for the dot-matrix font, with each colon wrapped so CSS can set it in the plain font.
@@ -329,7 +386,7 @@
   }
 
   function shiftDay(delta) {
-    state.selected = addDays(state.selected, delta);
+    state.selected = addDays(state.selected, state.view === 'week' ? delta * 7 : delta);
     if (state.selected.getMonth() === state.month.getMonth() && state.selected.getFullYear() === state.month.getFullYear()) {
       render();
     } else {
@@ -508,6 +565,8 @@
   $('signinBtn').addEventListener('click', signIn);
   $('prev').addEventListener('click', () => shiftMonth(-1));
   $('next').addEventListener('click', () => shiftMonth(1));
+  $('viewDay').addEventListener('click', () => setView('day'));
+  $('viewWeek').addEventListener('click', () => setView('week'));
   $('prevDay').addEventListener('click', () => shiftDay(-1));
   $('nextDay').addEventListener('click', () => shiftDay(1));
   $('dayBtn').addEventListener('click', () => toggleMonth($('monthPanel').hidden));
