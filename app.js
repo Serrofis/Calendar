@@ -49,6 +49,10 @@
         value: p.get('access_token'),
         expires: Date.now() + (Number(p.get('expires_in')) - 60) * 1000,
       });
+      store.set('signed_in', true);
+      store.del('silent_failed');
+    } else if (store.get('oauth_silent')) {
+      store.set('silent_failed', true);   // Google wants a real sign-in; don't retry in a loop
     }
   }
 
@@ -57,9 +61,12 @@
     return t && t.expires > Date.now() ? t.value : null;
   }
 
-  function signIn() {
+  // silent: ask Google for a new token without showing anything. It works while the
+  // phone is still signed in to Google and has already agreed, which is the usual case.
+  function signIn(silent) {
     const oauthState = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16)).join('');
     store.set('oauth_state', oauthState);
+    store.set('oauth_silent', silent === true);
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.search = new URLSearchParams({
       client_id: CFG.clientId,
@@ -68,8 +75,16 @@
       scope: SCOPES,
       state: oauthState,
       include_granted_scopes: 'true',
+      ...(silent === true ? { prompt: 'none' } : {}),
+      ...(store.get('login_hint') ? { login_hint: store.get('login_hint') } : {}),
     });
     location.assign(url);
+  }
+
+  // The token ran out: renew it quietly if possible, otherwise show the sign-in screen.
+  function renew() {
+    if (store.get('signed_in') && !store.get('silent_failed')) signIn(true);
+    else showSignIn('Your session expired. Sign in again.');
   }
 
   function showSignIn(message) {
@@ -86,7 +101,7 @@
   async function api(path, { method = 'GET', params = {}, body } = {}) {
     const t = token();
     if (!t) {
-      showSignIn('Your session expired. Sign in again.');
+      renew();
       throw new Error('Signed out');
     }
     const url = new URL(API + path);
@@ -98,7 +113,7 @@
     });
     if (res.status === 401) {
       store.del('token');
-      showSignIn('Your session expired. Sign in again.');
+      renew();
       throw new Error('Signed out');
     }
     if (!res.ok) {
@@ -543,6 +558,8 @@
       return;
     }
     store.del('token');
+    store.del('signed_in');
+    store.del('login_hint');
     state.cache.clear();
     showSignIn('You are signed out.');
   }
@@ -556,6 +573,13 @@
     tick();
     try {
       state.calendars = await backend.calendars();
+      // The primary calendar's id is the account's email; it tells Google which
+      // account to renew silently when several are signed in on the phone.
+      const primary = state.calendars.find((c) => c.primary);
+      if (primary && !DEMO) {
+        store.set('login_hint', primary.id);
+        store.set('signed_in', true);   // also covers sign-ins from before silent renewal existed
+      }
       await loadMonth();
     } catch (err) {
       if (err.message !== 'Signed out') toast(err.message);
@@ -606,11 +630,12 @@
   // Pick up changes made elsewhere when the app comes back to the foreground.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || $('app').hidden) return;
-    if (!DEMO && !token()) showSignIn('Your session expired. Sign in again.');
+    if (!DEMO && !token()) renew();
     else if (!$('editor').open) reload();
   });
 
   readRedirect();
   if (DEMO || token()) start();
+  else if (store.get('signed_in')) renew();
   else showSignIn();
 })();
